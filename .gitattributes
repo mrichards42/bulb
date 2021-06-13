@@ -1,0 +1,3 @@
+# Use clojure syntax highlighting for .fnl
+*.fnl linguist-language=clojure
+*.fnl -linguist-detectable
