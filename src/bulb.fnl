@@ -728,7 +728,8 @@
 
 (defn iter [x ...]
   "Converts a table, function, or string into a stateful iterator. Called by
-  most iterators to coerce their iterable arguments.
+  all iterator functions to coerce their iterable arguments. Typically you only
+  need to call this function to wrap a stateless iterator.
 
   Tables are assumed to be arrays and iterate over values, starting from one.
   Use [[iter-kv]] to iterate over key/value pairs of hash tables, or the
