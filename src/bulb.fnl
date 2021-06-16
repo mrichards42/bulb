@@ -1210,12 +1210,41 @@
                (step (pending))))))
     #(step (pending))))
 
+(fn catv-fill-pending [pending fst ...]
+  (when (not= nil fst)
+    (let [count (select "#" ...)]
+      (for [i 1 count]
+        (tset pending i (select i ...)))
+      ;; we're reusing `pending`, so mark the end with a nil
+      (tset pending (+ count 1) nil))
+    ;; the first value is returned immediately instead of being added to
+    ;; pending
+    fst))
+
+(defn catv [iterable]
+  "Takes an `iterable` that produces multiple values, and flattens them into
+  the output (i.e. iterates over one value at a time)."
+  (let [it (iter iterable)
+        pending []]
+    (var i 0)
+    (fn []
+      (set i (+ i 1))
+      (match (. pending i)
+        x x
+        _ (do (set i 0) (catv-fill-pending pending (it)))))))
+
 (defn mapcat [f ...]
   "Maps `f` over any number of iterables. `f` should return another iterable
   (e.g. a table), which will be flattened into the output using [[cat]].
 
-  See also [[map]] with multiple return values."
+  See also [[mapcatv]] to use multiple return values, which can be
+  significantly more efficient than returning a table."
   (cat (map f ...)))
+
+(defn mapcatv [f ...]
+  "Maps `f` over any number of iterables. `f` may return multiple values, which
+  will be flattened into the output using [[catv]]."
+  (catv (map f ...)))
 
 
 ;;; -- Reducing ---------------------------------------------------------------
