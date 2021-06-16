@@ -115,6 +115,11 @@
 
 (defn inc [x] (+ x 1))
 (defn dec [x] (- x 1))
+(defn clamp [x min max]
+  (if
+    (< x min) min
+    (< max x) max
+    x))
 
 
 
@@ -1066,101 +1071,108 @@
 ;; Note: grouping functions that have to traverse the whole collection are in
 ;; the "reducing" section (e.g. group-by, frequencies).
 
-(fn conj-and-return [tbl ...] 
-  (for [i 1 (select "#" ...)]
-    (let [x (select i ...)]
-      (tinsert tbl x)))
-  ...)
+(lua :do) ; do needed to stay under 200 locals limit
 
-(fn skip [n it]
+(fn partition-table [all? n step pad tbl]
+  (let [len (length tbl)
+        stop (if
+               all? len
+               pad (clamp (+ len step (- n) 1) 1 len)
+               :else (+ len (- n) 1))]
+    (var i 1)
+    (fn []
+      (when (<= i stop)
+        (let [ret [(unpack tbl i (+ i (- n 1)))]]
+          (when (and pad (= nil (. ret n)))
+            (for [i 1 (- n (length ret))]
+              (tinsert ret (. pad i))))
+          (set i (+ i step))
+          ret)))))
+
+(fn skip-part! [n it]
   (for [_ 1 n]
     (when (= nil (it))
       (lua "do return end")))
   true)
 
-(fn take-into [tbl n it]
-  (for [i 1 n]
-    (when (= nil (conj-and-return tbl (it)))
-      (lua "do return end")))
+(fn fill-part! [tbl n it]
+  (for [i 1 (- n (length tbl))]
+    (match (it)
+      x (tinsert tbl x)
+      _ (lua "do break end")))
   tbl)
 
-(fn partition-table [n step tbl all?]
-  (let [stop (if all?
-               (length tbl)
-               (- (length tbl) n -1))]
-    (var i 1)
+(fn partition-iter [all? n step pad iterable]
+  (let [gap (when (< n step) (- step n))]
+    (var it (iter iterable))
+    (var first? true)
+    (var part []) ; next partition
     (fn []
-      (when (<= i stop)
-        (let [ret [(unpack tbl i (+ i n -1))]]
-          (set i (+ i step))
-          ret)))))
+      (when (or (not gap) first? (skip-part! gap it))
+        (when first? (set first? false))
+        (let [ret (fill-part! part n it)]
+          (when (not= nil (. ret 1))
+            ;; take any overlap for the next iteration
+            (set part [(unpack ret (+ step 1))])
+            (if (not= nil (. ret n))
+              ;; normal return
+              ret
+              ;; otherwise we've exhausted the iterator
+              (do
+                (set it nil-iter)
+                (when pad
+                  (for [i 1 (math.min (length pad) (- n (length ret)))]
+                    (tinsert ret (. pad i))))
+                (if
+                  ;; partition-all includes all non-full iterations
+                  all? ret
+                  ;; partition with pad just pads the final non-full iteration
+                  pad (do (set part []) ret)
+                  ;; partition without pad skips the final non-full iteration
+                  nil)))))))))
+
+(fn partition-impl [all? ...]
+  (match (select "#" ...)
+    2 (let [(n iterable) ...]
+        (partition-impl all? n n nil iterable))
+    3 (let [(n step iterable) ...]
+        (partition-impl all? n step nil iterable))
+    4 (let [(n step pad iterable) ...]
+        (if
+          (< n 0) nil-iter
+          (array? iterable) (partition-table all? n step pad iterable)
+          :else (partition-iter all? n step pad iterable)))))
 
 (defn partition [...]
   "(partition n iterable)
   (partition n step iterable)
+  (partition n step pad iterable)
 
-  Partitions `iterable` into tables. Each table contains values from `n`
-  iterations. The start of each table is separated by `step` iterations.
-  Without `step`, defaults to separating by `n` iterations, i.e. without any
-  overlap or gap.
+  Partitions `iterable` into tables, each containing `n` elements. The start of
+  each table is separated by `step` iterations.  Without `step`, defaults to
+  separating by `n` iterations, i.e. without any overlap or gap.
 
-  Note that in the case of multi-valued iterators, the _iterations_ are
-  partitioned, not the values. With a 2-value iterator, each table will have
-  2*n items; with a 3-value iterator, 3*n, etc."
-  (match (select "#" ...)
-    2 (let [(n iterable) ...]
-        (partition n n iterable))
-    3 (let [(n step iterable) ...]
-        (if
-          (< n 0) nil-iter
-          (array? iterable) (partition-table n step iterable)
-          (let [overlap (when (< step n) (- n step))]
-            (var gap (when (< n step) 0)) ; first iteration has no gap
-            (var it (if overlap (iter-cached iterable) (iter iterable)))
-            (fn []
-              (when (or (not gap) (skip gap it))
-                (when (= 0 gap) (set gap (- step n)))
-                (let [ret []]
-                  (if overlap
-                    (when (take-into ret step it)
-                      (let [rest-it it]
-                        (set it (it:copy))
-                        (take-into ret overlap rest-it)))
-                    (take-into ret n it))))))))
-    _ (error "partition: expected 2 or 3 args")))
+  Without `pad`, skips the final group if it contains < `n` elements.
+
+  With `pad` (a table), pads the final group with that table. Does not skip the
+  final group even if it contains < `n` elements after padding.
+
+  Only supports single-value iterators. For multi-value iterators, you may want
+  to use [[catv]] to flatten multivals before calling partition."
+  (or (partition-impl false ...)
+      (error "partition: expected 2, 3, or 4 args")))
 
 (defn partition-all [...]
   "(partition-all n iterable)
   (partition-all n step iterable)
+  (partition-all n step pad iterable)
 
-  Like [[partition]] but includes any final iterations with fewer than `n`
-  elements instead of dropping them."
-  (match (select "#" ...)
-    2 (let [(n iterable) ...]
-        (partition-all n n iterable))
-    3 (let [(n step iterable) ...]
-        (if
-          (< n 0) nil-iter
-          (array? iterable) (partition-table n step iterable true)
-          (let [overlap (when (< step n) (- n step))]
-            (var gap (when (< n step) 0)) ; first iteration has no gap
-            (var it (if overlap (iter-cached iterable) (iter iterable)))
-            (fn []
-              (when (or (not gap) (skip gap it))
-                (when (= 0 gap) (set gap (- step n)))
-                (let [ret [(it)]]
-                  (when (not= nil (. ret 1))
-                    (if overlap
-                      (if (take-into ret (- step 1) it)
-                        (let [rest-it it]
-                          (set it (it:copy))
-                          (take-into ret overlap rest-it)
-                          ret)
-                        (do (set it nil-iter) ret))
-                      (if (take-into ret (- n 1) it)
-                        ret
-                        (do (set it nil-iter) ret))))))))))
-    _ (error "partition-all: expected 2 or 3 args")))
+  Like [[partition]], but includes any final groups with < `n` elements. With
+  step < n there may be multiple such final groups."
+  (or (partition-impl true ...)
+      (error "partition-all: expected 2, 3, or 4 args")))
+
+(lua :end) ; end do
 
 (defn partition-when [f iterable]
   "Partitions `iterable` into tables, splitting each time `f` returns truthy."
