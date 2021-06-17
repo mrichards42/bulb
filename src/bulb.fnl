@@ -91,6 +91,26 @@
        (= nil (. x 1))
        (not (callable? x))))
 
+(defn deep= [a b]
+  "Returns true when `a` and `b` are equal (in value, not identity). Compares
+  tables key-by-key. Ignores metatables.
+
+  Note: does not detect cycles, so comparing two equal tables with cycles will
+  never return."
+  (if
+    (= a b) true
+    (not= :table (type a)) false
+    (not= :table (type b)) false
+    (let [seen []]
+      (each [k v (pairs a)]
+        (if (deep= (. a k) (. b k))
+          (tset seen k k)
+          (lua "do return false end")))
+      (each [k v (pairs a)]
+        (if (= nil (. seen k))
+          (lua "do return false end")))
+      true)))
+
 ;; numbers
 
 (defn int? [x]
