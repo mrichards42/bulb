@@ -851,6 +851,114 @@
   (remove-kv! (fn [_ v] (not (pred v))) tbl))
 
 
+;; -- Extracting values -------------------------------------------------------
+
+;; These mostly return values, not iterators (except for functions that return
+;; slices, like rest/nthrest/butlast)
+
+(declare drop-last)
+
+(lua :do) ; do needed to stay under 200 locals limit
+
+(defn first [x]
+  "Returns the first item in `x` (any iterable), or nil if empty.
+
+  Note: for iterators, consumes the first value in x and returns it."
+  (match (type x)
+    :table (if (callable? x) (x) (. x 1))
+    :string (x:sub 1 1)
+    :function (x)
+    _ nil))
+
+(defn second [x]
+  "Returns the second item in `x` (any iterable), or nil if empty.
+
+  Note: for iterators, consumes the first two values in x, returning the
+  second."
+  (match (type x)
+    :table (if (callable? x) (do (x) (x)) (. x 2))
+    :string (x:sub 2 2)
+    :function (do (x) (x))
+    _ nil))
+
+(fn last-iter [it]
+  (var prev nil)
+  (fn step [...]
+    (if (= nil ...)
+      (if (= :table (type prev))
+        (values (unpack prev 1 prev.n))
+        prev)
+      (match (select "#" ...)
+        1 (do (set prev ...) (step (it)))
+        n (do (set prev [...]) (tset prev :n n) (step (it))))))
+  (step (it)))
+
+(defn last [x]
+  "Returns the last item in `x` (any iterable), or nil if empty.
+
+  Note: for iterators, consumes all values in x and returns the last value."
+  (match (type x)
+    :table (if (callable? x) (last-iter x) (. x (length x)))
+    :string (x:sub -1 -1)
+    :function (last-iter x)
+    _ nil))
+
+(defn butlast [x ?n]
+  "Returns everything but the last item in `x` (any iterable), or nil if empty.
+  With `n`, returns everything but the last `n` items.
+
+  Note: for iterators, same as (drop-last 1 x)."
+  (let [n (or ?n 1)]
+    (match (type x)
+      :table (if (callable? x) (drop-last n x) [(unpack x 1 (- (length x) n))])
+      :string (x:sub 1 (- (length x) n))
+      :function (drop-last n x)
+      _ nil)))
+
+(fn nthrest-iter [it_ n]
+  (var it it_)
+  (for [i 1 n]
+    (when (= nil (it))
+      (do (set it nil-iter) (lua "do break end"))))
+  it)
+
+(defn nthrest [x n]
+  "Returns `x` (any iterable) without the first `n` items, or nil if empty.
+
+  Note: for iterators, consumes the first n value in x and returns an iterator
+  over the remaining values. Essentially an eager version of (drop n x)."
+  (match (type x)
+    :table (if (callable? x) (nthrest-iter x 1) [(unpack x (+ n 1))])
+    :string (x:sub (+ n 1))
+    :function (nthrest-iter x n)
+    _ nil))
+
+(defn rest [x]
+  "Returns `x` (any iterable) without the first item, or nil if empty.
+
+  Note: for iterators, consumes the first value in x and returns an iterator
+  over the remaining values. Essentially an eager version of (drop 1 x)."
+  (nthrest x 1))
+
+(defn ffirst [x]
+  "Same as (first (first x))"
+  (first (first x)))
+
+(defn frest [x]
+  "Same as (first (rest x))"
+  (first (rest x)))
+
+(defn rfirst [x]
+  "Same as (rest (first x))"
+  (rest (first x)))
+
+(defn llast [x]
+  "Same as (last (last x))"
+  (last (last x)))
+
+(lua :end) ; end do
+
+
 ;;; -- Iterator composition ---------------------------------------------------
 
 (defn zip [...]
