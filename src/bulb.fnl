@@ -513,6 +513,162 @@
 ;; closure each time.
 
 
+;;; -- Basic iterators and predicates -----------------------------------------
+
+(defn iterable? [x]
+  "Is `x` iterable? Returns true for tables, strings, functions, and anything
+  with a `__call` metamethod."
+  (match (type x)
+    :table true
+    :function true
+    :string true
+    _ (callable? x)))
+
+;; Cached iterator forward declarations. Definitions are near the end of the
+;; file.
+(declare iter-cached cached-iter?)
+
+(fn nil-iter []) ; always returns nil; for internal use only
+
+(local ipairs-iter (ipairs []))
+
+(defn iter-indexed [tbl]
+  "Iterates over index/value pairs in `tbl`, starting from 1. A stateful
+  version of [[ipairs]]; identical to (iter (ipairs tbl))."
+  (var i 0)
+  (var end (length tbl))
+  (fn []
+    (when (< i end)
+      (set i (+ i 1))
+      (values i (. tbl i)))))
+
+(defn iter-kv [tbl]
+  "Iterates over key/value pairs in `tbl`. A stateful version of [[pairs]];
+  identical to (iter (pairs tbl))."
+  (var last-key nil)
+  (fn []
+    (let [(k v) (next tbl last-key)]
+      (when (not= nil k)
+        (set last-key k)
+        (values k v)))))
+
+(defn wrap-iter [it state ctrl_]
+  "Wraps a stateless lua iterator, returning a stateful (single function)
+  iterator. Typically [[iter]] should be used instead, as it will call this
+  function when necessary to wrap a stateless iterator."
+  (var ctrl ctrl_)
+  (fn step [...]
+    (when ...
+      (set ctrl ...)
+      ...))
+  (fn []
+    (step (it state ctrl))))
+
+(defn iter [x ...]
+  "Converts a table, function, or string into a stateful iterator. Called by
+  all iterator functions to coerce their iterable arguments. Typically you only
+  need to call this function to wrap a stateless iterator.
+
+  Tables are assumed to be arrays and iterate over values, starting from one.
+  Use [[iter-kv]] to iterate over key/value pairs of hash tables, or the
+  equivalent (iter (pairs tbl)). Use [[iter-indexed]] to iterate over
+  index/value pairs of arrays, or the equivalent (iter (ipairs tbl)).
+
+  Strings iterate over each character.
+
+  Functions (and callable tables) are assumed to already be stateful iterators
+  when passed no additional arguments. With additional arguments, functions are
+  assumed stateless iterators, and are wrapped using [[wrap-iter]]."
+  (match (type x)
+    :function (if
+                (= 0 (select "#" ...)) x
+                ;; stateless pairs
+                (= next x) (iter-kv x)
+                ;; stateless ipairs
+                (= ipairs-iter x) (iter-indexed x)
+                ;; otherwise we have to wrap this
+                (wrap-iter x ...))
+    :table (if
+             (cached-iter? x) (x:copy)
+             (callable? x) (if (= 0 (select "#" ...))
+                             x
+                             (wrap-iter x ...))
+             :else (do
+                     (var i 0)
+                     (fn []
+                       (set i (+ i 1))
+                       (. x i))))
+    :string (do
+              (var i 0)
+              (var end (length x))
+              (fn []
+                (when (< i end)
+                  (set i (+ i 1))
+                  (x:sub i i))))))
+
+(defn iterate [f ...]
+  "Iterates over `f` and any initial values, producing a sequence of
+
+  inits, (f inits), (f (f inits)), ...
+
+  `f` must return the same number of values as it takes, e.g. (iterate f x y z)
+  returns a 3-value iterator."
+  (match (select "#" ...)
+    0 f
+    1 (let [init ...]
+        (var x nil)
+        (fn []
+          (set x (if (not= nil x) (f x) init))
+          x))
+    2 (let [(init-x init-y) ...]
+        (var (x y) (values nil nil))
+        (fn []
+          (set (x y) (if (not= nil x) (f x y) (values init-x init-y)))
+          (values x y)))
+    3 (let [(init-x init-y init-z) ...]
+        (var (x y z) (values nil nil nil))
+        (fn []
+          (set (x y z) (if (not= nil x) (f x y z) (values init-x init-y init-z)))
+          (values x y z)))
+    _ (let [inits [...]]
+        (var xs nil)
+        (fn []
+          (set xs (if (not= nil xs) [(f (unpack xs))] inits))
+          (unpack xs)))))
+
+(defn range [...]
+  "(range)               -- infinite range
+  (range end)            -- range from 1 to end
+  (range start end)      -- range from start to end
+  (range start end step) -- range from start to end increasing by step.
+
+  Note that, following lua semantics, ranges start with 1 by default, and `end`
+  is inclusive. In other words, these are equivalent:
+    (each [x (range 1 10 3)] (print x))
+    (for [x 1 10 3] (print x))"
+  (match (select "#" ...)
+    ;; infinite range from 1
+    0 (do
+        (var i 0)
+        (fn [] (set i (+ 1 i)) i))
+    1 (range 1 ...)
+    _ (let [(start end step) ...]
+        (if
+          (not step) (range start end 1)
+          (>= step 0) (do
+                        (var i (- start step))
+                        (fn []
+                          (set i (+ i step))
+                          (when (<= i end)
+                            i)))
+          :else (do
+                  (var i (- start step))
+                  (fn []
+                    (set i (+ i step))
+                    (when (>= i end)
+                      i)))))))
+
+
 ;;; -- Table traversal --------------------------------------------------------
 
 ;; Starting with traversal "primitives" that only deal with tables. When passed
@@ -693,162 +849,6 @@
 (defn filter-vals! [pred tbl]
   "Filters pairs of `tbl`, in place, where (pred val) returns truthy."
   (remove-kv! (fn [_ v] (not (pred v))) tbl))
-
-
-;;; -- Basic iterators and predicates -----------------------------------------
-
-(defn iterable? [x]
-  "Is `x` iterable? Returns true for tables, strings, functions, and anything
-  with a `__call` metamethod."
-  (match (type x)
-    :table true
-    :function true
-    :string true
-    _ (callable? x)))
-
-;; Cached iterator forward declarations. Definitions are near the end of the
-;; file.
-(declare iter-cached cached-iter?)
-
-(fn nil-iter []) ; always returns nil; for internal use only
-
-(local ipairs-iter (ipairs []))
-
-(defn iter-indexed [tbl]
-  "Iterates over index/value pairs in `tbl`, starting from 1. A stateful
-  version of [[ipairs]]; identical to (iter (ipairs tbl))."
-  (var i 0)
-  (var end (length tbl))
-  (fn []
-    (when (< i end)
-      (set i (+ i 1))
-      (values i (. tbl i)))))
-
-(defn iter-kv [tbl]
-  "Iterates over key/value pairs in `tbl`. A stateful version of [[pairs]];
-  identical to (iter (pairs tbl))."
-  (var last-key nil)
-  (fn []
-    (let [(k v) (next tbl last-key)]
-      (when (not= nil k)
-        (set last-key k)
-        (values k v)))))
-
-(defn wrap-iter [it state ctrl_]
-  "Wraps a stateless lua iterator, returning a stateful (single function)
-  iterator. Typically [[iter]] should be used instead, as it will call this
-  function when necessary to wrap a stateless iterator."
-  (var ctrl ctrl_)
-  (fn step [...]
-    (when ...
-      (set ctrl ...)
-      ...))
-  (fn []
-    (step (it state ctrl))))
-
-(defn iter [x ...]
-  "Converts a table, function, or string into a stateful iterator. Called by
-  all iterator functions to coerce their iterable arguments. Typically you only
-  need to call this function to wrap a stateless iterator.
-
-  Tables are assumed to be arrays and iterate over values, starting from one.
-  Use [[iter-kv]] to iterate over key/value pairs of hash tables, or the
-  equivalent (iter (pairs tbl)). Use [[iter-indexed]] to iterate over
-  index/value pairs of arrays, or the equivalent (iter (ipairs tbl)).
-
-  Strings iterate over each character.
-
-  Functions (and callable tables) are assumed to already be stateful iterators
-  when passed no additional arguments. With additional arguments, functions are
-  assumed stateless iterators, and are wrapped using [[wrap-iter]]."
-  (match (type x)
-    :function (if
-                (= 0 (select "#" ...)) x
-                ;; stateless pairs
-                (= next x) (iter-kv x)
-                ;; stateless ipairs
-                (= ipairs-iter x) (iter-indexed x)
-                ;; otherwise we have to wrap this
-                (wrap-iter x ...))
-    :table (if
-             (cached-iter? x) (x:copy)
-             (callable? x) (if (= 0 (select "#" ...))
-                             x
-                             (wrap-iter x ...))
-             :else (do
-                     (var i 0)
-                     (fn []
-                       (set i (+ i 1))
-                       (. x i))))
-    :string (do
-              (var i 0)
-              (var end (length x))
-              (fn []
-                (when (< i end)
-                  (set i (+ i 1))
-                  (x:sub i i))))))
-
-(defn iterate [f ...]
-  "Iterates over `f` and any initial values, producing a sequence of
-
-  inits, (f inits), (f (f inits)), ...
-
-  `f` must return the same number of values as it takes, e.g. (iterate f x y z)
-  returns a 3-value iterator."
-  (match (select "#" ...)
-    0 f
-    1 (let [init ...]
-        (var x nil)
-        (fn []
-          (set x (if (not= nil x) (f x) init))
-          x))
-    2 (let [(init-x init-y) ...]
-        (var (x y) (values nil nil))
-        (fn []
-          (set (x y) (if (not= nil x) (f x y) (values init-x init-y)))
-          (values x y)))
-    3 (let [(init-x init-y init-z) ...]
-        (var (x y z) (values nil nil nil))
-        (fn []
-          (set (x y z) (if (not= nil x) (f x y z) (values init-x init-y init-z)))
-          (values x y z)))
-    _ (let [inits [...]]
-        (var xs nil)
-        (fn []
-          (set xs (if (not= nil xs) [(f (unpack xs))] inits))
-          (unpack xs)))))
-
-(defn range [...]
-  "(range)               -- infinite range
-  (range end)            -- range from 1 to end
-  (range start end)      -- range from start to end
-  (range start end step) -- range from start to end increasing by step.
-
-  Note that, following lua semantics, ranges start with 1 by default, and `end`
-  is inclusive. In other words, these are equivalent:
-    (each [x (range 1 10 3)] (print x))
-    (for [x 1 10 3] (print x))"
-  (match (select "#" ...)
-    ;; infinite range from 1
-    0 (do
-        (var i 0)
-        (fn [] (set i (+ 1 i)) i))
-    1 (range 1 ...)
-    _ (let [(start end step) ...]
-        (if
-          (not step) (range start end 1)
-          (>= step 0) (do
-                        (var i (- start step))
-                        (fn []
-                          (set i (+ i step))
-                          (when (<= i end)
-                            i)))
-          :else (do
-                  (var i (- start step))
-                  (fn []
-                    (set i (+ i step))
-                    (when (>= i end)
-                      i)))))))
 
 
 ;;; -- Iterator composition ---------------------------------------------------
