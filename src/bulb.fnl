@@ -3,7 +3,7 @@
   "Fennel 'core' library.")
 
 ;; [x] TODO assoc, dissoc, update
-;; [ ] TODO take-last drop-last?
+;; [x] TODO take-last drop-last?
 ;; [x] TODO even?, odd?, pos?, neg?, other math functions, other predicates, like table? true?
 ;; false? nil?
 ;; [x] TODO flatten?
@@ -1031,6 +1031,28 @@
         (do (set dropping? false) (step (it)))
         ...))
     #(step (it))))
+
+(defn drop-last [n iterable]
+  "Drops the last `n` items in iterable. In other words, _takes_ all but the
+  last `n` items."
+  (let [head (iter-cached iterable)
+        tail (drop n (head:copy))]
+    (map #$1 head tail)))
+
+(defn take-last [n iterable]
+  "Takes only the last `n` items in iterable. In other words,  _drops_ all but
+  the last `n` items. Evaluates the entire iterable on the first iteration."
+  (let [it (iter-cached iterable)]
+    (var first? true)
+    (fn []
+      (when first?
+        (set first? false)
+        ;; run through the whole thing and count how many items there are
+        (var count 0)
+        (each [_ (it:copy)] (set count (+ count 1)))
+        ;; drop all but the last `n`
+        (for [_ 1 (- count n)] (it)))
+      (it))))
 
 
 ;;; -- Deduplication ----------------------------------------------------------
