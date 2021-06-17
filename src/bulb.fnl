@@ -1176,32 +1176,31 @@
 (lua :end) ; end do
 
 (defn partition-when [f iterable]
-  "Partitions `iterable` into tables, splitting each time `f` returns truthy."
+  "Partitions `iterable` into tables, splitting each time `f` returns truthy.
+  Only supports single-value iterators."
   (var it (iter iterable))
   (var pending [])
-  (fn step [...]
-    (if
-      ;; return any remaining pending items when we hit the end
-      (= nil ...)
-      (when (not= nil (. pending 1))
-        (set it nil-iter)
+  (fn loop []
+    (let [x (it)]
+      (if
+        ;; we're at the end: return any remaining pending items
+        (= nil x)
+        (when (not= nil (. pending 1))
+          (let [ret pending]
+            (set it nil-iter)
+            (set pending [])
+            ret))
+        ;; we hit a split (and we have a pending group)
+        (and (not= nil (. pending 1)) (f x))
         (let [ret pending]
-          (set pending [])
-          ret))
-      ;; split
-      (f ...)
-      (if (= nil (. pending 1))
-        (step (it)) ; first partition shouldn't be empty
-        (let [ret pending]
-          (set pending [...])
-          ret))
-      ;; else no split yet, keep going
-      (do (conj! pending ...) (step (it)))))
-  #(step (it)))
+          (set pending [x]) ; start the next group
+          ret)
+        ;; no split, keep accumulating
+        (do (tinsert pending x) (loop))))))
 
 (defn partition-by [f iterable]
   "Partitions `iterable` into tables, splitting each time `f` returns a
-  different value."
+  different value. Only supports single-value iterators."
   (var prev {}) ; a unique value to start
   (partition-when (fn [...]
                     (let [key (f ...)]
