@@ -1705,8 +1705,7 @@
 
   (set cached-fn-meta
        {:__call cached-fn-call
-        :__index {:__step cached-fn-step
-                  :copy (fn [{: it : head : i}]
+        :__index {:copy (fn [{: it : head : i}]
                           (setmetatable {: it : head : i} cached-fn-meta))}}))
 
 (defn iter-cached [iterable]
