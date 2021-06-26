@@ -53,7 +53,7 @@
           (match (when (list? form) form)
             [:require & args] (strip-values (require* (unpack args)))
             [:import-macros & args] `(import-macros ,(unpack args))
-            [:require-macros & args] (mapva #`(require-macros ,$) (unpack args))
+            [:require-macros & args] (map-args #`(require-macros ,$) (unpack args))
             [:require-all & args] (strip-values (require-all (unpack args)))
             _ (error (.. "Unknown ns clause: " (view form)) 1)))
         (if docstring ... (values ?doc ...))))))
