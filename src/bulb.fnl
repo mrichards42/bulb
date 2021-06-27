@@ -12,7 +12,7 @@
 ;; [x] TODO slurp?, spit?
 ;; [ ] TODO every-pred?, some-fn? <-- not great names
 ;; [x] TODO: take-nth
-;; [ ] TODO interleave
+;; [x] TODO interleave
 
 ;; TODO: should we have partition into varargs as well?
 
@@ -1024,6 +1024,27 @@
           (set it (orig:copy))
           (step (it)))))
     #(step (it))))
+
+(declare catv)
+
+(defn interleave [...]
+  "Iterates over the first item in each iterable, then the second, etc. Stops
+  at the shortest iterable."
+  (catv (zip ...)))
+
+(defn interpose [sep iterable]
+  "Iterates over items in `iterable`, adding `sep` between each item. Only
+  supports single-value iterators."
+  (var it (iter iterable))
+  (var pending nil)
+  (var sep? false)
+  (fn []
+    (if (and sep? pending)
+      (do (set sep? false) sep)
+      (match (or pending (it))
+        x (do (set pending (it)) (set sep? true) x)
+        _ (do (set it nil-iter) nil)))))
+
 
 
 ;;; -- Traversal (map, filter) ------------------------------------------------
