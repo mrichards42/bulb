@@ -583,9 +583,9 @@
     :function (if
                 (= 0 (select "#" ...)) x
                 ;; stateless pairs
-                (= next x) (iter-kv x)
+                (= next x) (iter-kv ...)
                 ;; stateless ipairs
-                (= ipairs-iter x) (iter-indexed x)
+                (= ipairs-iter x) (iter-indexed ...)
                 ;; otherwise we have to wrap this
                 (wrap-iter x ...))
     :table (if
