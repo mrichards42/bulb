@@ -287,8 +287,8 @@
   (merge! {} ...))
 
 (defn merge-with! [f tbl ...]
-  "Merges any number of other tables into `tbl`, in place. When two keys exist
-  in the same table, calls (f left-val right-val) and uses the result.  Ignores
+  "Merges any number of other tables into `tbl`, in place. When the same key
+  exists in two tables, calls (f left right) and uses the result. Ignores
   nils."
   (let [others [...]]
     (for [i 1 (select "#" ...)]
