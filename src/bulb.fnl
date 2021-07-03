@@ -29,6 +29,11 @@
 (local sformat string.format)
 (local unpack (or table.unpack _G.unpack))
 
+;; lua has a 200 locals limit, and there are a lot of locals in this file, so
+;; it's split up into 2 giant `do` forms -- this one for the top half of the
+;; file, and a second one for the iterators section
+(do
+
 ;;;; == Predicates and coercions ==============================================
 
 ;; primitives
@@ -467,8 +472,11 @@
   (require mod-name))
 
 
+) ; end do
+
 
 ;;;; == Iterators =============================================================
+(do ; see note about locals at the top of the file
 
 ;;; Stateful vs stateless
 
@@ -512,6 +520,7 @@
 ;; out as (top-level module) locals for efficiency, rather than creating a new
 ;; closure each time.
 
+(local {: array? : callable? : clamp : complement} *ns*) ;; locals from above
 
 ;;; -- Basic iterators and predicates -----------------------------------------
 
@@ -858,8 +867,6 @@
 
 (declare drop-last)
 
-(lua :do) ; do needed to stay under 200 locals limit
-
 (defn first [x]
   "Returns the first item in `x` (any iterable), or nil if empty.
 
@@ -955,8 +962,6 @@
 (defn llast [x]
   "Same as (last (last x))"
   (last (last x)))
-
-(lua :end) ; end do
 
 
 ;;; -- Iterator composition ---------------------------------------------------
@@ -1243,8 +1248,6 @@
 ;; Note: grouping functions that have to traverse the whole collection are in
 ;; the "reducing" section (e.g. group-by, frequencies).
 
-(lua :do) ; do needed to stay under 200 locals limit
-
 (fn partition-table [all? n step pad tbl]
   (let [len (length tbl)
         stop (if
@@ -1343,8 +1346,6 @@
   step < n there may be multiple such final groups."
   (or (partition-impl true ...)
       (error "partition-all: expected 2, 3, or 4 args")))
-
-(lua :end) ; end do
 
 (defn partition-when [f iterable]
   "Partitions `iterable` into tables, splitting each time `f` returns truthy.
@@ -1753,7 +1754,7 @@
              (callable? iterable) (cached-fn (iter iterable))
              :else (cached-table iterable))))
 
-
+) ; end iterators
 
 
 (comment
