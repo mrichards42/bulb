@@ -1,6 +1,15 @@
-(require-macros :ns)
-(ns bulb
-  "Fennel 'core' library.")
+(local B
+  {:__NAME "Bulb"
+   :__DOC "Fennel 'core' library."})
+
+(macro declare [...]
+  `(var (,...) nil))
+
+(macro defn [name ...]
+  `(values ,(if (in-scope? name)
+              `(set ,name (fn ,name ,...)) ; forward declaration
+              `(fn ,name ,...))
+           (tset ,(sym :B) ,(tostring name) ,name)))
 
 ;; [x] TODO assoc, dissoc, update
 ;; [x] TODO take-last drop-last?
@@ -520,7 +529,8 @@
 ;; out as (top-level module) locals for efficiency, rather than creating a new
 ;; closure each time.
 
-(local {: array? : callable? : clamp : complement} *ns*) ;; locals from above
+(local {: array? : callable? : clamp : complement} B) ;; locals from above
+(declare iter-cached cached-iter?)
 
 ;;; -- Basic iterators and predicates -----------------------------------------
 
@@ -532,10 +542,6 @@
     :function true
     :string true
     _ (callable? x)))
-
-;; Cached iterator forward declarations. Definitions are near the end of the
-;; file.
-(declare iter-cached cached-iter?)
 
 (fn nil-iter []) ; always returns nil; for internal use only
 
@@ -1875,4 +1881,4 @@
 
  )
 
-(ns-export)
+B
