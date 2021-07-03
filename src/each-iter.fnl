@@ -80,14 +80,14 @@
     groups))
 
 ;; See the end of this file for example macroexpansions
-(fn each-iter-1 [outer [[bind expr & modifiers] & inner-groups] body]
+(fn each-iter-1 [inner outer [[bind expr & modifiers] & inner-groups] body]
   (let [it (gensym :it) state (gensym :state) ctrl (gensym :ctrl)
         loop (gensym :loop)
         outer-call (if outer `(,outer) `nil)
         do-mods (fn do-mods [[fst snd & more-mods]]
                   (match (values fst snd)
                     (nil nil) (if (next inner-groups)
-                                (each-iter-1 loop inner-groups body)
+                                (each-iter-1 inner loop inner-groups body)
                                 body)
                     (:let let-bindings) `(let ,let-bindings ,(do-mods more-mods))
                     (:when test) `(if ,test ,(do-mods more-mods) (,loop))
@@ -112,16 +112,16 @@
       ;; return the simple iterator function
       (nil nil) `(do ,init-vars ,declare-fn ,loop)
       ;; Outermost nested interator -- setup the initial chain
-      (nil _) `(do (var inner# nil)
+      (nil _) `(do (var ,inner nil)
                  ,init-vars ,declare-fn
                  ;; the first call kicks off a chain that starts at the
                  ;; outermost iterator and ends at the innermost iterator,
                  ;; eventually rebinding `inner` (see the next case)
-                 (set inner# ,loop)
-                 (fn [] (inner#)))
+                 (set ,inner ,loop)
+                 (fn [] (,inner)))
       ;; Innermost nested iterator -- rebind `inner`
       (_ nil) `(do ,init-vars ,declare-fn
-                 (set inner# ,loop)
+                 (set ,inner ,loop)
                  (,loop))
       ;; Otherwise this is an intermediary iterator, so keep the chain going
       _ `(do ,init-vars ,declare-fn
@@ -139,7 +139,7 @@
                   "each-iter: expected an even number of bindings" [])
   (assert-compile (binding? (. bindings 1))
                   "each-iter: first binding must be to an iterator" [])
-  (each-iter-1 nil (partition-bindings bindings) body))
+  (each-iter-1 (gensym :inner) nil (partition-bindings bindings) body))
 
 (fn doseq [bindings ...]
   "Like [[each]], but supports multiple iterators, and adds support for :let,
