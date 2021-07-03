@@ -25,13 +25,6 @@
 
 ;; TODO: should we have partition into varargs as well?
 
-;; TODO: running out of locals! Either split this up, or have a defn macro that
-;; only adds to the module table instead of creating a local?
-; (macro defmany [n val]
-;   `(values ,(unpack (let [xs []] (for [i 1 n] (table.insert xs `(local x# ,val))) xs))))
-
-; (defmany 12 nil) ; meaning I have 188 locals
-
 (local mfloor math.floor)
 (local mrandom math.random)
 (local tinsert table.insert)
