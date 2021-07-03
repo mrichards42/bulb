@@ -1470,17 +1470,17 @@
   Iterates over successive steps of reducing `f` over `init` and `iterable`."
   (match ...
     (?init iterable) (let [it (iter iterable)]
-                       (var (continue? acc) (values true nil))
+                       (var (first? continue? acc) (values true true nil))
                        (fn []
-                         (if (= nil acc)
-                           (do (set acc ?init) acc)
+                         (if first?
+                           (do (set first? false) (set acc ?init) acc)
                            (match (reduce-step f acc (it))
                              (true x) (do (set acc x) x)))))
     (iterable) (let [it (iter iterable)]
-                 (var (continue? acc) (values true nil))
+                 (var (first? continue? acc) (values true true nil))
                  (fn []
-                   (if (= nil acc)
-                     (do (set acc (it)) acc)
+                   (if first?
+                     (do (set first? false) (set acc (it)) acc)
                      (match (reduce-step f acc (it))
                        (true x) (do (set acc x) x)))))))
 
