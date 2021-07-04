@@ -687,7 +687,7 @@
 ;; These are defined before the iterator versions b/c some iterator functions
 ;; (e.g. zip) use mapt.
 
-(declare totable map keep filter remove)
+(declare totable map keep filter remove zip)
 
 (defn mapt [f ...]
   "Like [[map]], but collects results in a table."
