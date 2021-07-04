@@ -28,6 +28,7 @@
 (local mfloor math.floor)
 (local mrandom math.random)
 (local tinsert table.insert)
+(local tsort table.sort)
 (local sformat string.format)
 (local unpack (or table.unpack _G.unpack))
 
@@ -199,6 +200,16 @@
 (defn rand-nth [tbl]
   "Returns a random item in `tbl`."
   (. tbl (mrandom (length tbl))))
+
+(defn sort! [tbl ?cmp]
+  "Sorts `tbl` in place, optionally with a comparison function."
+  (tsort tbl ?cmp)
+  tbl)
+
+(defn sort-by! [f tbl]
+  "Sorts `tbl` in place by the result of calling `f` on each item."
+  (tsort tbl (fn [a b] (< (f a) (f b))))
+  tbl)
 
 ;; key/value tables (aka hashes, maps)
 
