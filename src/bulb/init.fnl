@@ -162,18 +162,21 @@
       (tinsert tbl x)))
   tbl)
 
+(fn flatten-into! [tbl last-idx xs]
+  (var last last-idx)
+  (for [i 1 (length xs)]
+    (let [x (. xs i)]
+      (if (array? x)
+        (set last (flatten-into! tbl last x))
+        (do (tset tbl last x)
+          (set last (+ last 1))))))
+  last)
+
 (defn flatten [tbl]
-  "Flattens nested array tables into a single table (does not flatten hashes)."
+  "Flattens nested array tables into a single array (does not flatten hashes)."
   (let [ret []]
-    (var last 0)
-    (for [i 1 (length tbl)]
-      (let [x (. tbl 1)]
-        (if (array? x)
-          (for [j 1 (length x)]
-            (set last (+ last 1))
-            (tset ret last (. x j)))
-          (do (set last (+ last 1))
-            (tset ret last x)))))
+    (when (array? tbl)
+      (flatten-into! ret 1 tbl))
     ret))
  
 (defn shuffle! [tbl]
