@@ -166,9 +166,11 @@
 
 (defn conj! [tbl ...]
   "Appends all values to `tbl`, returning `tbl`."
+  (var end (length tbl)) ; a bit faster than table.insert
   (for [i 1 (select "#" ...)]
-    (let [x (select i ...)]
-      (tinsert tbl x)))
+    (match (select i ...)
+      x (do (set end (+ 1 end))
+          (tset tbl end x))))
   tbl)
 
 (fn flatten-into! [tbl last-idx xs]
