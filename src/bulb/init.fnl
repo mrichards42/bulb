@@ -352,20 +352,32 @@
   "Like [[merge-with!]] but returns a new table."
   (merge-with! f {} ...))
 
-(declare deep-merge!)
-(fn deep-merge-helper [a b]
+(fn deep-merge-helper [merge-fn f a b]
   (if (and (hash-or-empty? a) (hash-or-empty? b))
-    (deep-merge! a b)
-    b))
+    (merge-fn f a b)
+    (f a b)))
+
+(defn deep-merge-with! [f ...]
+  "Merges any number of nested hash tables, recursively, in place. When the
+  same key exists in two tables, and the values are not both hash tables, calls
+  (f left right) and uses the result. Ignores nils."
+  (merge-with! (fn [a b] (deep-merge-helper deep-merge-with! f a b)) ...))
+
+(defn deep-merge-with [f ...]
+  "Like [[deep-merge-with]], but returns a new table."
+  (merge-with (fn [a b] (deep-merge-helper deep-merge-with f a b)) ...))
+
+(fn second-arg [_ b] b)
 
 (defn deep-merge! [...]
-  "Merges any number of associative tables, recursively, in place. Overwrites
+  "Merges any number of nested hash tables, recursively, in place. Overwrites
   array tables instead of merging them. Ignores nils."
-  (merge-with! deep-merge-helper ...))
+  (deep-merge-with! second-arg ...))
 
 (defn deep-merge [...]
   "Like [[deep-merge!]] but returns a new table."
-  (deep-merge! {} ...))
+  (deep-merge-with second-arg ...))
+
 
 
 
