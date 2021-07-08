@@ -5,6 +5,7 @@
 (local test-modules
   [:test.predicates
    :test.math
+   :test.tables
    :test.iterators])
 
 (let [runner (doto (lu.LuaUnit.new)
