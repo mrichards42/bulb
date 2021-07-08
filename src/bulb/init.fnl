@@ -1564,13 +1564,20 @@
   "Collects values from `iterable`, appending them to the end of `tbl`. Only
   supports single-value iterators. See [[into!+]] to use a multi-value
   iterator."
-  ;; a bit faster than just table.insert since it caches the length 
-  (var end (length tbl))
-  (fn step [tbl x]
-    (set end (+ 1 end))
-    (tset tbl end x)
-    tbl)
-  (reduce step tbl iterable))
+  (if (array? iterable)
+    (do
+      (var end (length tbl))
+      (for [i 1 (length iterable)]
+        (set end (+ 1 end))
+        (tset tbl end (. iterable i)))
+      tbl)
+    (do
+      (var end (length tbl)) ; a bit faster than table.insert
+      (fn step [tbl x]
+        (set end (+ 1 end))
+        (tset tbl end x)
+        tbl)
+      (reduce step tbl iterable))))
 
 (defn into!+ [tbl iterable]
   "Collects all values from `iterable`, appending each value to the end of
