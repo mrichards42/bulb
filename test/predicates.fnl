@@ -245,6 +245,27 @@
   (is (not (B.deep= {:a 1} {})))
   (is (not (B.deep= {:a {:b {:c {:d [1]}}}} {:a {:b {:c {:d []}}}})))
   (is (not (B.deep= {[1] 1 [2] 2 [3] 3} {[1] 1 [2] 2 [3] 3}))
-      "table keys are compared by identity, not value"))
+      "table keys are compared by identity, not value")
+  ;; tables with cycles
+  (let [x [1 2 3] y [1 2 3]]
+    (table.insert x x)
+    (table.insert y y)
+    (is (B.deep= x y)
+        "tables with cycles"))
+  (let [x [1 2 3 4] y [1 2 3]]
+    (table.insert x x)
+    (table.insert y y)
+    (is (not (B.deep= x y))
+        "unequal tables with cycles"))
+  (let [x [1 2 3 {:a {:b {}}}] y [1 2 3 {:a {:b {}}}]]
+    (tset x 4 :a :b :c x)
+    (tset y 4 :a :b :c y)
+    (is (B.deep= x y)
+        "tables with nested cycles"))
+  (let [x [1 2 3] y [1 2 3]]
+    (tset x x x)
+    (tset y y y)
+    (is (not (B.deep= x y))
+        "deep= requires keys to be identical")))
 
 tests

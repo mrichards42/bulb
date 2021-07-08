@@ -99,25 +99,34 @@
        (= nil (. x 1))
        (not (callable? x))))
 
-(defn deep= [a b]
-  "Returns true when `a` and `b` are equal (in value, not identity). Compares
-  tables key-by-key. Ignores metatables.
-
-  Note: does not detect cycles, so comparing two equal tables with cycles will
-  never return."
+(fn deep=-helper [a b seen]
   (if
     (= a b) true
     (not= :table (type a)) false
     (not= :table (type b)) false
-    (let [seen []]
-      (each [k v (pairs a)]
-        (if (deep= (. a k) (. b k))
-          (tset seen k k)
+    (?. seen a b) true
+    (do
+      (if (. seen a)
+        (tset seen a b true)
+        (tset seen a {b true}))
+      ;; check b's keys first (just that they exist in `a` at all)
+      (each [k _ (pairs b)]
+        (when (= nil (. a k))
           (lua "do return false end")))
+      ;; then check a's keys and both values simultaneously
       (each [k v (pairs a)]
-        (if (= nil (. seen k))
+        (when (not (deep=-helper (. a k) (. b k) seen))
           (lua "do return false end")))
       true)))
+
+(defn deep= [a b]
+  "Returns true when `a` and `b` are equal. Compares hash-table keys by
+  identity, and everything else by value."
+  (if
+    (= a b) true
+    (not= :table (type a)) false
+    (not= :table (type b)) false
+    (deep=-helper a b {})))
 
 ;; numbers
 
