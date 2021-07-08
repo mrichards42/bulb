@@ -309,7 +309,7 @@
         (tset ret k (. tbl k))))
     ret))
 
-(defn select-keys-deep [tbl ...]
+(defn deep-select-keys [tbl ...]
   "Returns a deep copy of `tbl` that only includes the given `keys` (the
   remaining args)."
   (let [ret {}]
