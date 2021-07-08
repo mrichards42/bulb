@@ -233,6 +233,23 @@
       (tset tbl k v)))
   tbl)
 
+(defn assoc-in! [tbl ...]
+  "(assoc-in! tbl key keys... val)
+
+  Sets a value in a nested table. Like [[tset]], but creates missing
+  intermediate tables."
+  (let [n (select "#" ...)
+        last-k (select (- n 1) ...)
+        val (select n ...)]
+    (var t tbl)
+    (for [i 1 (- n 2)]
+      (let [k (select i ...)]
+        (when (= nil (. t k))
+          (tset t k {}))
+        (set t (. t k))))
+    (tset t last-k val)
+    tbl))
+
 (defn dissoc! [tbl ...]
   "Removes any number of keys from `tbl`, returning `tbl`."
   (for [i 1 (select "#" ...)]
