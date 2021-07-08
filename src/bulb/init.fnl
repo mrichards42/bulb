@@ -278,19 +278,27 @@
   (collect [k v (pairs tbl)]
     (values k v)))
 
-(fn deep-copy-helper [x seen]
+(fn deep-copy-helper [x seen copy-keys?]
   (if
     (not= :table (type x)) x
     (. seen x) (. seen x)
     (let [ret {}]
       (tset seen x ret)
       (each [k v (pairs x)]
-        (tset ret (deep-copy-helper k seen) (deep-copy-helper v seen)))
+        (let [k* (if copy-keys?
+                   (deep-copy-helper k seen copy-keys?)
+                   k)]
+          (tset ret k* (deep-copy-helper v seen copy-keys?))))
       ret)))
 
 (defn deep-copy [x]
-  "Returns a deep copy of `tbl`."
-  (deep-copy-helper x {}))
+  "Returns a deep copy of `tbl`. Does not copy hash-table keys that are tables,
+  since generally table keys are compared by identity, not value."
+  (deep-copy-helper x {} false))
+
+(defn deep-copy-with-keys [x]
+  "Like [[deep-copy]], but _does_ copy hash-table keys."
+  (deep-copy-helper x {} true))
 
 (defn select-keys [tbl ...]
   "Returns a (shallow) copy of `tbl` that only includes the given `keys` (the
