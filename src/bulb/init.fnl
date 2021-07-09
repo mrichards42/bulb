@@ -1554,6 +1554,18 @@
     (set ret (f ret k v)))
   ret)
 
+;; this mimics the syntax of fennel's accumulate
+(macro accumulate* [[accum-var init binding iterable] ...]
+  `(do
+     (var ,accum-var ,init)
+     (if (array? ,iterable)
+       (for [i# 1 (length ,iterable)]
+         (let [,binding (. ,iterable i#)]
+           (set ,accum-var (do ,...))))
+       (each [,binding (iter ,iterable)]
+         (set ,accum-var (do ,...))))
+     ,accum-var))
+
 (defn run! [f iterable]
   "Calls `f` on each item in iterable.
 
@@ -1564,20 +1576,12 @@
   "Collects values from `iterable`, appending them to the end of `tbl`. Only
   supports single-value iterators. See [[into!+]] to use a multi-value
   iterator."
-  (if (array? iterable)
-    (do
-      (var end (length tbl))
-      (for [i 1 (length iterable)]
-        (set end (+ 1 end))
-        (tset tbl end (. iterable i)))
-      tbl)
-    (do
-      (var end (length tbl)) ; a bit faster than table.insert
-      (fn step [tbl x]
-        (set end (+ 1 end))
-        (tset tbl end x)
-        tbl)
-      (reduce step tbl iterable))))
+  (var end (length tbl))
+  (accumulate* [tbl tbl
+                x iterable]
+    (set end (+ 1 end))
+    (tset tbl end x)
+    tbl))
 
 (defn into!+ [tbl iterable]
   "Collects all values from `iterable`, appending each value to the end of
@@ -1621,33 +1625,32 @@
 (defn sum [iterable]
   "Computes the sum of all values in `iterable`. Only supports single-value
   iterators."
-  (reduce #(+ $1 $2) 0 iterable))
+  (accumulate* [total 0 x iterable] (+ total x)))
 
 (defn product [iterable]
   "Computes the product of all values in `iterable`. Only supports single-value
   iterators."
-  (reduce #(* $1 $2) 1 iterable))
+  (accumulate* [total 1 x iterable] (* total x)))
 
 (defn minimum [iterable]
   "Returns the minimum value in `iterable`. Items are compared with `<`. Only
   supports single-value iterators."
-  (reduce (fn [ret x] (if (< x ret) x ret)) iterable))
+  (accumulate* [ret nil x iterable] (if (or (= nil ret) (< x ret)) x ret)))
 
 (defn maximum [iterable]
   "Returns the maximum value in `iterable`. Items are compared with `<`. Only
   supports single-value iterators"
-  (reduce (fn [ret x] (if (< ret x) x ret)) iterable))
+  (accumulate* [ret nil x iterable] (if (and (not= nil ret) (< x ret)) ret x)))
 
 ;; Reducing grouping functions
-
-(fn frequencies-rf [m v]
-  (tset m v (+ 1 (or (. m v) 0)))
-  m)
 
 (defn frequencies [iterable]
   "Returns a table of {item count} for each item in `iterable`. Only supports
   single-value iterators."
-  (reduce frequencies-rf {} iterable))
+  (accumulate* [ret {}
+                x iterable]
+    (tset ret x (+ 1 (or (. ret x) 0)))
+    ret))
 
 (defn group-by [f iterable]
   "Groups items in `iterable`, keyed by the result of calling `f` on each item.
@@ -1655,13 +1658,13 @@
   key. In other words {(f x) [x etc...]}
 
   Only supports single-value iterators."
-  (reduce (fn [ret x]
-            (let [k (f x)]
-              (match (. ret k)
-                xs (tinsert xs x)
-                _ (tset ret k [x]))
-              ret))
-          {} iterable))
+  (accumulate* [ret {}
+                x iterable]
+    (let [k (f x)]
+      (match (. ret k)
+        xs (tinsert xs x)
+        _ (tset ret k [x]))
+      ret)))
 
 (defn index-by [f iterable]
   "Returns a map of the elements in `iterable`, keyed by the result of calling
@@ -1669,7 +1672,10 @@
   corresponding key. In other words, {(f x) x}
 
   Only supports single-value iterators."
-  (reduce (fn [ret x] (tset ret (f x) x) ret) {} iterable))
+  (accumulate* [ret {}
+                x iterable]
+    (tset ret (f x) x)
+    ret))
 
 ;; Reducing predicates
 
