@@ -1516,10 +1516,10 @@
   (match ...
     ;; 3-arg reduce
     (?init iterable) (let [it (iter iterable)]
-                      (var (continue? acc) (values true ?init))
-                      (while continue?
-                        (set (continue? acc) (reduce-step f acc (it))))
-                      acc)
+                       (var (continue? acc) (values true ?init))
+                       (while continue?
+                         (set (continue? acc) (reduce-step f acc (it))))
+                       acc)
     ;; 2-arg reduce
     (iterable) (let [it (iter iterable)]
                  ;; (destructively) take the first item as the initial value
