@@ -385,11 +385,24 @@
 
 ;;;; == Functional ============================================================
 
+(defn identity [...]
+  "Returns all arguments."
+  ...)
+
+(defn identity1 [x]
+  "Returns just the first argument."
+  x)
+
+(defn identity2 [x y]
+  "Returns just the first two arguments."
+  (values x y))
+
 (defn comp [...]
   "Takes any number of functions and composes them together in order, passing
   all values from one function to the next:
   ((comp f g) x y z) -> (f (g x y z))"
   (match (select "#" ...)
+    0 identity
     1 ...
     2 (let [(f g) ...] (fn [...] (f (g ...))))
     3 (let [(f g h) ...] (fn [...] (f (g (h ...)))))
@@ -415,6 +428,7 @@
   only 1 value from one function to the next:
   ((comp1 f g) x) -> (pick-values 1 (f (pick-values 1 (g x))))"
   (match (select "#" ...)
+    0 identity1
     1 ...
     2 (let [(f g) ...] (comp-body 1 f g))
     3 (let [(f g h) ...] (comp-body 1 f g h))
@@ -429,6 +443,7 @@
   only 2 values from one function to the next:
   ((comp2 f g) x y) -> (pick-values 2 (f (pick-values 2 (g x y))))"
   (match (select "#" ...)
+    0 identity2
     1 ...
     2 (let [(f g) ...] (comp-body 2 f g))
     3 (let [(f g h) ...] (comp-body 2 f g h))
@@ -447,14 +462,6 @@
     2 (let [(f g) ...] (fn [...] (values (f ...) (g ...))))
     3 (let [(f g h) ...] (fn [...] (values (f ...) (g ...) (h ...))))
     n (let [fs [...]] (fn [...] (unpack (icollect [_ f (ipairs fs)] (f ...)))))))
-
-(defn identity [...]
-  "Returns all arguments."
-  ...)
-
-(defn identity1 [x]
-  "Returns just the first argument."
-  x)
 
 (defn complement [f]
   "Returns a function that calls `f` and returns its opposite."
