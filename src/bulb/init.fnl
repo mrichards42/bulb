@@ -411,17 +411,22 @@
     6 (let [(f g h x y z) ...] (fn [...] (f (g (h (x (y (z ...))))))))
     n (comp (comp (pick-values 6 ...)) (select 7 ...))))
 
-(macro comp-body [pick-values-n ...]
-  (fn body1 [args f ...]
-    (let [syms (list)]
-      (for [i 1 pick-values-n]
-        (tset syms i (gensym (tostring f))))
-      (if ...
-        `(let [,syms ,(list f (unpack args))]
-           ,(body1 syms ...))
-        `(let [,syms ,(list f (unpack args))]
-           (values ,(unpack syms))))))
-  `(fn [...] ,(body1 [`...] ...)))
+(macro comp-body [n ...]
+  (let [fn-count (select "#" ...)
+        bindings []
+        syms (list)]
+    (for [i 1 n]
+      (tset syms i (gensym)))
+    (for [i fn-count 1 -1]
+      (let [f (select i ...)
+            call (if (= i fn-count)
+                   `(,f ...)
+                   `(,f ,(unpack syms)))]
+        (table.insert bindings syms)
+        (table.insert bindings call)))
+    `(fn [...]
+       (let ,bindings
+         (values ,(unpack syms))))))
 
 (defn comp1 [...]
   "Takes any number of functions and composes them together in order, passing
