@@ -1,7 +1,6 @@
 (import-macros {: assert= : assert-items=} :test.macros)
 (local B (require :bulb))
-
-(local unpack (or table.unpack _G.unpack))
+(local unpack B.unpack)
 
 (local tests {})
 

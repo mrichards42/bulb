@@ -164,6 +164,8 @@
 
 ;; array tables
 
+(set B.unpack (or table.unpack _G.unpack)) ; export this handy alias
+
 (defn conj! [tbl ...]
   "Appends all values to `tbl`, returning `tbl`."
   (var end (length tbl)) ; a bit faster than table.insert
