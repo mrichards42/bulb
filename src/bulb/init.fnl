@@ -486,18 +486,18 @@
   Takes any number of args, patching as many nil arguments to `f`."
   (match (select "#" ...)
     0 (fn [a ...]
-        (let [a (if (= nil a) a x)]
+        (let [a (if (= nil a) x a)]
           (f a ...)))
     1 (let [y ...]
         (fn [a b ...]
-          (let [a (if (= nil a) a x)
-                b (if (= nil b) b y)]
+          (let [a (if (= nil a) x a)
+                b (if (= nil b) y b)]
             (f a b ...))))
     2 (let [(y z) ...]
         (fn [a b c ...]
-          (let [a (if (= nil a) a x)
-                b (if (= nil b) b y)
-                c (if (= nil c) c z)]
+          (let [a (if (= nil a) x a)
+                b (if (= nil b) y b)
+                c (if (= nil c) z c)]
             (f a b c ...))))
     _ (let [replacements [x ...]
             n (length replacements)]
