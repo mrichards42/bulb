@@ -499,15 +499,16 @@
                 b (if (= nil b) y b)
                 c (if (= nil c) z c)]
             (f a b c ...))))
-    _ (let [replacements [x ...]
-            n (length replacements)]
-        (fn [...]
-          (let [args [...]
-                count (select "#" ...)]
-            (for [i 1 n]
-              (when (= nil (. args i))
-                (tset args i (. replacements i))))
-            (f (unpack args 1 count)))))))
+    nargs (let [replacements [x ...]
+                n (+ nargs 1)]
+            (fn [...]
+              (let [args []]
+                (for [i 1 (math.max (select "#" ...) n)]
+                  (let [arg (select i ...)]
+                    (if (= nil arg)
+                      (tset args i (. replacements i))
+                      (tset args i arg))))
+                (f (unpack args)))))))
 
 (local delay-none {})
 (defn delay-fn [f]
