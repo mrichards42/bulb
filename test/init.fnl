@@ -6,6 +6,7 @@
   [:test.predicates
    :test.math
    :test.tables
+   :test.functional
    :test.iterators])
 
 (let [runner (doto (lu.LuaUnit.new)
