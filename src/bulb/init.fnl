@@ -173,6 +173,13 @@
           (tset tbl end x))))
   tbl)
 
+(defn repeat [n x]
+  "Returns a table that is `n` copies of `x`"
+  (let [ret []]
+    (for [i 1 n]
+      (tset ret i x))
+    ret))
+
 (fn flatten-into! [tbl last-idx xs]
   (var last last-idx)
   (for [i 1 (length xs)]

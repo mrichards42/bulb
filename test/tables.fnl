@@ -12,6 +12,10 @@
   (assert= [0 :a :b :c :d] (B.conj! [0] :a nil :b nil :c nil :d nil nil)
            "nils are skipped"))
 
+(fn tests.repeat []
+  (assert= [] (B.repeat 0 :x))
+  (assert= [:x :x :x :x :x :x] (B.repeat 6 :x)))
+
 (fn tests.flatten-ignore []
   (assert= [] (B.flatten 1) "ignores number args")
   (assert= [] (B.flatten :a "ignores string args"))
