@@ -527,7 +527,7 @@
 (defn slurp [filename ?mode]
   "Reads the full contents of `filename`, optionally with `mode` (default :r)."
   (with-open [f (assert (io.open filename (or ?mode :r)))]
-    (f:read :*)))
+    (f:read :*a)))
 
 (defn spit [filename contents ?mode]
   "Writes `contents` to `filename`, optionally with `mode` (default :w)."
